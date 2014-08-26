@@ -79,6 +79,7 @@ namespace kaleidoscope {
                 } while (ch != '\n' && ch != EOF);
             } else {
                 tokens.emplace_back(new CharToken(Position(filename, line, column), static_cast<char>(ch)));
+                ch = readChar(&first, &last, &line, &column);
             }
         }
 

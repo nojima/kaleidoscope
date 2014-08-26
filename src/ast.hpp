@@ -36,6 +36,10 @@ namespace kaleidoscope {
         NumberExprNode(const Position& position, double value):
             ExprNode(position), value_(value) {}
 
+        double value() const noexcept {
+            return value_;
+        }
+
     private:
         double value_;
     };
@@ -132,6 +136,26 @@ namespace kaleidoscope {
     };
 
 
+    class FunctionNode: public Node {
+    public:
+        FunctionNode(std::unique_ptr<PrototypeNode> proto,
+                     std::unique_ptr<ExprNode> body):
+            Node(proto->position()), proto_(std::move(proto)), body_(std::move(body)) {}
+
+        const PrototypeNode* prototype() const noexcept {
+            return proto_.get();
+        }
+
+        const ExprNode* body() const noexcept {
+            return body_.get();
+        }
+
+    private:
+        std::unique_ptr<PrototypeNode> proto_;
+        std::unique_ptr<ExprNode> body_;
+    };
+
+
     class ParseError {
     public:
         ParseError(const Position& position, const std::string& message):
@@ -159,5 +183,7 @@ namespace kaleidoscope {
     // This function destructively modifies `it` to point the head of unparsed tokens.
     // If some error occurrs, this function throws ParseError.
     std::unique_ptr<ExprNode> parseExpr(std::vector<std::unique_ptr<Token>>::iterator& it);
+
+    void parseAndPrint(std::vector<std::unique_ptr<Token>>::iterator& it);
 
 }   // namespace kaleidoscope
