@@ -1,18 +1,31 @@
 CXX = clang++
-CXXFLAGS = $(shell llvm-config --cppflags) -std=c++11 -fPIC -O3 -Wall -Wextra -gdwarf-3 -D_FORTIFY_SOURCE=2 -fsanitize=address -fno-omit-frame-pointer
-LDFLAGS = $(shell llvm-config --ldflags) -fsanitize=address
 
-HEADERS = $(wildcard src/*.hpp)
-SOURCES = $(wildcard src/*.cpp)
-OBJECTS = $(patsubst %.cpp,%.o,$(SOURCES))
+LANGUAGE_OPTIONS = -std=c++11
+WARNING_OPTIONS = -Wall -Wextra -Woverloaded-virtual -Weffc++
+OPTIMIZATION_OPTIONS = -O3 -fno-omit-frame-pointer
+CODE_GENERATION_OPTIONS = -fPIC
+PREPROCESSOR_OPTIONS = -MMD -MP
+LLVM_OPTIONS = $(shell llvm-config --cppflags | sed -e 's/-DNDEBUG //')
+DEBUGGING_OPTIONS = -gdwarf-3 -fsanitize=address
+CXXFLAGS = $(LANGUAGE_OPTIONS) $(WARNING_OPTIONS) $(OPTIMIZATION_OPTIONS) $(CODE_GENERATION_OPTIONS) $(PREPROCESSOR_OPTIONS) $(LLVM_OPTIONS) $(DEBUGGING_OPTIONS)
+
+LDFLAGS = $(shell llvm-config --ldflags) -fsanitize=address
 LIBS = $(shell llvm-config --libs core)
+
+SOURCES = $(wildcard src/*.cpp)
+OBJECTS = $(patsubst src/%, obj/%, $(patsubst %.cpp, %.o, $(SOURCES)))
+DEPENDS = $(patsubst %.o, %.d, $(OBJECTS))
 
 TARGET = kaleidoscope
 
 $(TARGET): $(OBJECTS)
-	$(CXX) $(LDFLAGS) -o $@ $(OBJECTS) $(LIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJECTS): $(HEADERS)
+obj/%.o: src/%.cpp
+	@mkdir -p obj/
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
 
 clean:
-	rm -f src/*.o kaleidoscope
+	rm -rf obj/ $(TARGET)
+
+-include $(DEPENDS)
