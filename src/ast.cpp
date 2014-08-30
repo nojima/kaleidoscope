@@ -176,21 +176,25 @@ namespace {
         return std::unique_ptr<FunctionNode>(new FunctionNode(std::move(proto), std::move(expr)));
     }
 
-    bool parseOneAndPrint(Iter& it)
+    bool parseOneAndPrint(Iter& it, Context& context)
     {
         if (dynamic_cast<EofToken*>(it->get())) {
             return true;
         }
 
         if (dynamic_cast<DefToken*>(it->get())) {
-            std::unique_ptr<FunctionNode> func = parseDefinition(it);
-            std::cout << "definition of " << func->prototype()->name() << std::endl;
+            std::unique_ptr<FunctionNode> node = parseDefinition(it);
+            std::unique_ptr<llvm::Function> func(node->Codegen(context));
+            std::cerr << "Read function definition: ";
+            func->dump();
             return false;
         }
 
         if (dynamic_cast<ExternToken*>(it->get())) {
-            std::unique_ptr<PrototypeNode> proto = parseExtern(it);
-            std::cout << "prototype of " << proto->name() << std::endl;
+            std::unique_ptr<PrototypeNode> node = parseExtern(it);
+            std::unique_ptr<llvm::Function> func(node->Codegen(context));
+            std::cerr << "Read extern: ";
+            func->dump();
             return false;
         }
 
@@ -201,8 +205,10 @@ namespace {
             }
         }
 
-        std::unique_ptr<FunctionNode> func = parseTopLevelExpr(it);
-        std::cout << "toplevel" << std::endl;
+        std::unique_ptr<FunctionNode> node = parseTopLevelExpr(it);
+        std::unique_ptr<llvm::Function> func(node->Codegen(context));
+        std::cerr << "Read top-level expression: ";
+        func->dump();
         return false;
     }
 
@@ -215,27 +221,6 @@ namespace kaleidoscope {
     {
         std::unique_ptr<ExprNode> lhs = parsePrimary(it);
         return parseBinaryExprRhs(it, 0, std::move(lhs));
-    }
-
-
-    void parseAndPrint(Iter& it)
-    {
-        for (;;) {
-            try {
-                bool finish = parseOneAndPrint(it);
-                if (finish)
-                    return;
-            } catch (const ParseError& e) {
-                std::cerr << e.what() << std::endl;
-                // discard tokens until next ';'
-                for (;;) {
-                    CharToken* t = dynamic_cast<CharToken*>(it->get());
-                    ++it;
-                    if (t && t->ch() == ';')
-                        break;
-                }
-            }
-        }
     }
 
     llvm::Value* NumberExprNode::Codegen(Context&) const
@@ -286,7 +271,6 @@ namespace kaleidoscope {
         return context.builder().CreateCall(calleeFunction, argValues, "calltmp");
     }
 
-
     llvm::Function* PrototypeNode::Codegen(Context& context) const {
         std::vector<llvm::Type*> doubles(
                 args_.size(), llvm::Type::getDoubleTy(llvm::getGlobalContext()));
@@ -327,12 +311,35 @@ namespace kaleidoscope {
             llvm::Value* ret = body_->Codegen(context);
             context.builder().CreateRet(ret);
             llvm::verifyFunction(*f);
-        } catch (CodegenError&) {
+        } catch (const CodegenError&) {
             f->eraseFromParent();
             throw;
         }
 
         return f;
+    }
+
+    void parseAndPrint(Iter& it)
+    {
+        llvm::LLVMContext& globalContext = llvm::getGlobalContext();
+        Context context(new llvm::Module("my module", globalContext), globalContext);
+
+        for (;;) {
+            try {
+                bool finish = parseOneAndPrint(it, context);
+                if (finish)
+                    return;
+            } catch (const BasicError& e) {
+                std::cerr << e.what() << std::endl;
+                // discard tokens until next ';'
+                for (;;) {
+                    CharToken* t = dynamic_cast<CharToken*>(it->get());
+                    ++it;
+                    if (t && t->ch() == ';')
+                        break;
+                }
+            }
+        }
     }
 
 }   // namespace kaleidoscope
