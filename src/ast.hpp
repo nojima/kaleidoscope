@@ -3,6 +3,14 @@
 #include <memory>
 #include <vector>
 
+#include <llvm/IR/Verifier.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+
+#include "context.hpp"
+#include "error.hpp"
 #include "position.hpp"
 #include "token.hpp"
 
@@ -19,6 +27,8 @@ namespace kaleidoscope {
         const Position& position() const noexcept {
             return position_;
         }
+
+        virtual llvm::Value* Codegen(Context& context) const = 0;
 
     private:
         Position position_;
@@ -40,6 +50,8 @@ namespace kaleidoscope {
             return value_;
         }
 
+        virtual llvm::Value* Codegen(Context& Context) const;
+
     private:
         double value_;
     };
@@ -53,6 +65,8 @@ namespace kaleidoscope {
         const std::string& name() const noexcept {
             return name_;
         }
+
+        virtual llvm::Value* Codegen(Context& Context) const;
 
     private:
         std::string name_;
@@ -78,6 +92,8 @@ namespace kaleidoscope {
         const ExprNode* rhs() const noexcept {
             return rhs_.get();
         }
+
+        virtual llvm::Value* Codegen(Context& Context) const;
 
     private:
         Operator op_;
@@ -105,6 +121,8 @@ namespace kaleidoscope {
             return args_.size();
         }
 
+        virtual llvm::Value* Codegen(Context& Context) const;
+
     private:
         std::string callee_;
         std::vector<std::unique_ptr<ExprNode>> args_;
@@ -130,6 +148,8 @@ namespace kaleidoscope {
             return args_.size();
         }
 
+        virtual llvm::Value* Codegen(Context& Context) const;
+
     private:
         std::string name_;
         std::vector<std::string> args_;
@@ -150,32 +170,25 @@ namespace kaleidoscope {
             return body_.get();
         }
 
+        virtual llvm::Value* Codegen(Context& Context) const;
+
     private:
         std::unique_ptr<PrototypeNode> proto_;
         std::unique_ptr<ExprNode> body_;
     };
 
 
-    class ParseError {
+    class ParseError: public BasicError {
     public:
         ParseError(const Position& position, const std::string& message):
-            position_(position), message_(message) {}
+            BasicError(position, message) {}
+    };
 
-        const Position& position() const noexcept {
-            return position_;
-        }
 
-        const std::string& message() const noexcept {
-            return message_;
-        }
-
-        std::string what() const {
-            return position_.toString() + ": " + message_;
-        }
-
-    private:
-        Position position_;
-        std::string message_;
+    class CodegenError: public BasicError {
+    public:
+        CodegenError(const Position& position, const std::string& message):
+            BasicError(position, message) {}
     };
 
 

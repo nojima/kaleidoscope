@@ -238,4 +238,52 @@ namespace kaleidoscope {
         }
     }
 
+    llvm::Value* NumberExprNode::Codegen(Context&) const
+    {
+        return llvm::ConstantFP::get(llvm::getGlobalContext(), llvm::APFloat(value_));
+    }
+
+    llvm::Value* VariableExprNode::Codegen(Context& context) const
+    {
+        auto it = context.namedValues().find(name_);
+        if (it == context.namedValues().end())
+            throw CodegenError(position(), "unknown variable name");
+        return it->second;
+    }
+
+    llvm::Value* BinaryExprNode::Codegen(Context& context) const
+    {
+        llvm::Value* l = lhs_->Codegen(context);
+        llvm::Value* r = rhs_->Codegen(context);
+
+        switch (op_) {
+        case '+': return context.builder().CreateFAdd(l, r, "addtmp");
+        case '-': return context.builder().CreateFSub(l, r, "subtmp");
+        case '*': return context.builder().CreateFMul(l, r, "multmp");
+        case '<':
+            l = context.builder().CreateFCmpULT(l, r, "cmptmp");
+            return context.builder().CreateUIToFP(
+                    l, llvm::Type::getDoubleTy(llvm::getGlobalContext()), "booltmp");
+        default:
+            throw CodegenError(position(), "invalid binary operator");
+        }
+    }
+
+    llvm::Value* CallExprNode::Codegen(Context& context) const
+    {
+        llvm::Function* calleeFunction = context.module()->getFunction(callee_);
+        if (!calleeFunction)
+            throw CodegenError(position(), "unknown function referenced");
+
+        if (calleeFunction->arg_size() != args_.size())
+            throw CodegenError(position(), "incorrent number of arguments passed");
+
+        std::vector<llvm::Value*> argValues;
+        for (size_t i = 0, e = args_.size(); i != e; ++i) {
+            argValues.push_back(args_[i]->Codegen(context));
+        }
+
+        return context.builder().CreateCall(calleeFunction, argValues, "calltmp");
+    }
+
 }   // namespace kaleidoscope
