@@ -286,4 +286,53 @@ namespace kaleidoscope {
         return context.builder().CreateCall(calleeFunction, argValues, "calltmp");
     }
 
+
+    llvm::Function* PrototypeNode::Codegen(Context& context) const {
+        std::vector<llvm::Type*> doubles(
+                args_.size(), llvm::Type::getDoubleTy(llvm::getGlobalContext()));
+        llvm::FunctionType* ft = llvm::FunctionType::get(
+                llvm::Type::getDoubleTy(llvm::getGlobalContext()), doubles, false);
+        llvm::Function* f = llvm::Function::Create(
+                ft, llvm::Function::ExternalLinkage, name_, context.module());
+
+        if (f->getName() != name_) {
+            f->eraseFromParent();
+            f = context.module()->getFunction(name_);
+
+            if (!f->empty())
+                throw CodegenError(position(), "redefinition of function");
+
+            if (f->arg_size() != args_.size())
+                throw CodegenError(position(), "redefinition of function with different number of argments");
+        }
+
+        auto it1 = f->arg_begin();
+        auto it2 = args_.begin();
+        for (; it1 != f->arg_end() && it2 != args_.end(); ++it1, ++it2) {
+            it1->setName(*it2);
+            context.namedValues()[*it2] = &*it1;
+        }
+
+        return f;
+    }
+
+    llvm::Function* FunctionNode::Codegen(Context& context) const {
+        context.namedValues().clear();
+
+        llvm::Function* f = proto_->Codegen(context);
+        llvm::BasicBlock* block = llvm::BasicBlock::Create(llvm::getGlobalContext(), "entry", f);
+        context.builder().SetInsertPoint(block);
+
+        try {
+            llvm::Value* ret = body_->Codegen(context);
+            context.builder().CreateRet(ret);
+            llvm::verifyFunction(*f);
+        } catch (CodegenError&) {
+            f->eraseFromParent();
+            throw;
+        }
+
+        return f;
+    }
+
 }   // namespace kaleidoscope

@@ -28,8 +28,6 @@ namespace kaleidoscope {
             return position_;
         }
 
-        virtual llvm::Value* Codegen(Context& context) const = 0;
-
     private:
         Position position_;
     };
@@ -38,6 +36,8 @@ namespace kaleidoscope {
     class ExprNode: public Node {
     public:
         explicit ExprNode(const Position& position): Node(position) {}
+
+        virtual llvm::Value* Codegen(Context& context) const = 0;
     };
 
 
@@ -148,7 +148,7 @@ namespace kaleidoscope {
             return args_.size();
         }
 
-        virtual llvm::Value* Codegen(Context& Context) const;
+        llvm::Function* Codegen(Context& Context) const;
 
     private:
         std::string name_;
@@ -170,7 +170,7 @@ namespace kaleidoscope {
             return body_.get();
         }
 
-        virtual llvm::Value* Codegen(Context& Context) const;
+        virtual llvm::Function* Codegen(Context& Context) const;
 
     private:
         std::unique_ptr<PrototypeNode> proto_;
