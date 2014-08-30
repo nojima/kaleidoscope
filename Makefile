@@ -47,6 +47,7 @@ test: $(TESTS)
 
 obj/test/%.exe: obj/test/%.o $(filter-out obj/main/main.o, $(OBJECTS)) obj/gtest/gtest_main.a
 	$(CXX) $(LDFLAGS) -lpthread $^ -o $@ $(LIBS)
+	$@
 
 obj/test/%.o: test/%.cpp
 	@mkdir -p obj/test
