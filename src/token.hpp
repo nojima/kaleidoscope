@@ -23,6 +23,8 @@ namespace kaleidoscope {
             return position_;
         }
 
+        virtual std::string toString() const = 0;
+
     private:
         Position position_;
     };
@@ -33,6 +35,8 @@ namespace kaleidoscope {
     public:
         explicit EofToken(const Position& position):
             Token(position) {}
+
+        virtual std::string toString() const;
     };
 
 
@@ -41,6 +45,8 @@ namespace kaleidoscope {
     public:
         explicit DefToken(const Position& position):
             Token(position) {}
+
+        virtual std::string toString() const;
     };
 
 
@@ -49,6 +55,8 @@ namespace kaleidoscope {
     public:
         explicit ExternToken(const Position& position):
             Token(position) {}
+
+        virtual std::string toString() const;
     };
 
 
@@ -61,6 +69,8 @@ namespace kaleidoscope {
         const std::string& name() const noexcept {
             return name_;
         }
+
+        virtual std::string toString() const;
 
     private:
         std::string name_;
@@ -77,6 +87,8 @@ namespace kaleidoscope {
             return number_;
         }
 
+        virtual std::string toString() const;
+
     private:
         double number_;
     };
@@ -91,6 +103,8 @@ namespace kaleidoscope {
         char ch() const noexcept {
             return ch_;
         }
+
+        virtual std::string toString() const;
 
     private:
         char ch_;

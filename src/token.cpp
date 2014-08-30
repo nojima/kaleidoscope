@@ -27,6 +27,36 @@ namespace {
 
 namespace kaleidoscope {
 
+    std::string EofToken::toString() const
+    {
+        return "eof";
+    }
+
+    std::string DefToken::toString() const
+    {
+        return "def";
+    }
+
+    std::string ExternToken::toString() const
+    {
+        return "extern";
+    }
+
+    std::string IdentifierToken::toString() const
+    {
+        return "identifier('" + name_ + "')";
+    }
+
+    std::string NumberToken::toString() const
+    {
+        return "number(" + std::to_string(number_) + ")";
+    }
+
+    std::string CharToken::toString() const
+    {
+        return "char('" + std::string(1, ch_) + "')";
+    }
+
     std::vector<std::unique_ptr<Token>> tokenize(
             std::istreambuf_iterator<char> first,
             std::istreambuf_iterator<char> last,
@@ -39,6 +69,7 @@ namespace kaleidoscope {
         size_t column = 1;
         int ch = *first;
         std::vector<std::unique_ptr<Token>> tokens;
+        ++first;
 
         for (;;) {
             // skip spaces
