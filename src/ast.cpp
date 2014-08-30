@@ -11,22 +11,24 @@ namespace {
 
     std::unique_ptr<ExprNode> parseNumberExpr(Iter& it)
     {
-        NumberToken* token = dynamic_cast<NumberToken*>(it->get());
-        assert(token);
+        const NumberToken* t = dynamic_cast<NumberToken*>(it->get());
+        if (!t)
+            throw ParseError((*it)->position(), "extected number");
         ++it;
-        return std::unique_ptr<NumberExprNode>(new NumberExprNode(token->position(), token->number()));
+        return std::unique_ptr<NumberExprNode>(new NumberExprNode(t->position(), t->number()));
     }
 
     std::unique_ptr<ExprNode> parseParenExpr(Iter& it)
     {
-        CharToken* t1 = dynamic_cast<CharToken*>(it->get());
+        const CharToken* t1 = dynamic_cast<CharToken*>(it->get());
         if (!t1 || t1->ch() != '(')
             throw ParseError((*it)->position(), "expected '('");
+        ++it;
 
         std::unique_ptr<ExprNode> ret = parseExpr(it);
 
-        CharToken* t2 = dynamic_cast<CharToken*>(it->get());
-        if (t2 || t2->ch() != ')')
+        const CharToken* t2 = dynamic_cast<CharToken*>(it->get());
+        if (!t2 || t2->ch() != ')')
             throw ParseError((*it)->position(), "expected ')'");
         ++it;
 
@@ -39,7 +41,7 @@ namespace {
         for (;;) {
             args.push_back(parseExpr(it));
 
-            CharToken* token = dynamic_cast<CharToken*>(it->get());
+            const CharToken* token = dynamic_cast<CharToken*>(it->get());
             if (!token || (token->ch() != ')' && token->ch() != ','))
                 throw ParseError((*it)->position(), "expected ')' or ',' in argument list");
             ++it;
@@ -52,11 +54,12 @@ namespace {
 
     std::unique_ptr<ExprNode> parseIdentifierExpr(Iter& it)
     {
-        IdentifierToken* t1 = dynamic_cast<IdentifierToken*>(it->get());
-        assert(t1);
+        const IdentifierToken* t1 = dynamic_cast<IdentifierToken*>(it->get());
+        if (!t1)
+            throw ParseError((*it)->position(), "expected identifier");
         ++it;
 
-        if (CharToken* t2 = dynamic_cast<CharToken*>(it->get())) {
+        if (const CharToken* t2 = dynamic_cast<CharToken*>(it->get())) {
             if (t2->ch() == '(') {
                 ++it;
                 return parseFunctionCall(it, t1->position(), t1->name());
@@ -74,14 +77,14 @@ namespace {
         if (dynamic_cast<NumberToken*>(it->get()))
             return parseNumberExpr(it);
 
-        if (CharToken* t = dynamic_cast<CharToken*>(it->get()))
+        if (const CharToken* t = dynamic_cast<CharToken*>(it->get()))
             if (t->ch() == '(')
                 return parseParenExpr(it);
 
         throw ParseError((*it)->position(), "unknown token when expecting an expression");
     }
 
-    int getPrecedence(CharToken* token)
+    int getPrecedence(const CharToken* token)
     {
         if (!token)
             return -1;
@@ -96,35 +99,37 @@ namespace {
 
     std::unique_ptr<ExprNode> parseBinaryExprRhs(Iter& it, int minPrecedence, std::unique_ptr<ExprNode> lhs)
     {
-        CharToken* t1 = dynamic_cast<CharToken*>(it->get());
+        const CharToken* t1 = dynamic_cast<CharToken*>(it->get());
         int precedence1 = getPrecedence(t1);
         if (precedence1 < minPrecedence)
             return std::move(lhs);
-        Operator op = t1->ch();
+        const Operator op = t1->ch();
         ++it;
 
         auto rhs1 = parsePrimary(it);
 
-        CharToken* t2 = dynamic_cast<CharToken*>(it->get());
-        int precedence2 = getPrecedence(t2);
+        const CharToken* t2 = dynamic_cast<CharToken*>(it->get());
+        const int precedence2 = getPrecedence(t2);
         if (precedence1 >= precedence2) {
-            auto lhs2 = std::unique_ptr<BinaryExprNode>(new BinaryExprNode(t1->position(), op, std::move(lhs), std::move(rhs1)));
+            auto lhs2 = std::unique_ptr<BinaryExprNode>(
+                new BinaryExprNode(t1->position(), op, std::move(lhs), std::move(rhs1)));
             return parseBinaryExprRhs(it, minPrecedence, std::move(lhs2));
         } else {
             auto rhs2 = parseBinaryExprRhs(it, precedence1 + 1, std::move(rhs1));
-            auto lhs2 = std::unique_ptr<BinaryExprNode>(new BinaryExprNode(t1->position(), op, std::move(lhs), std::move(rhs2)));
+            auto lhs2 = std::unique_ptr<BinaryExprNode>(
+                new BinaryExprNode(t1->position(), op, std::move(lhs), std::move(rhs2)));
             return parseBinaryExprRhs(it, minPrecedence, std::move(lhs2));
         }
     }
 
     std::unique_ptr<PrototypeNode> parsePrototype(Iter& it)
     {
-        IdentifierToken* t1 = dynamic_cast<IdentifierToken*>(it->get());
+        const IdentifierToken* t1 = dynamic_cast<IdentifierToken*>(it->get());
         if (!t1)
             throw ParseError((*it)->position(), "expected function name in prototype");
         ++it;
 
-        CharToken* t2 = dynamic_cast<CharToken*>(it->get());
+        const CharToken* t2 = dynamic_cast<CharToken*>(it->get());
         if (!t2 || t2->ch() != '(')
             throw ParseError((*it)->position(), "expected '(' in prototype");
         ++it;
@@ -134,13 +139,13 @@ namespace {
             args.push_back(t3->name());
             ++it;
 
-            CharToken* t4 = dynamic_cast<CharToken*>(it->get());
+            const CharToken* t4 = dynamic_cast<CharToken*>(it->get());
             if (!t4 || t4->ch() != ',')
                 break;
             ++it;
         }
 
-        CharToken* t5 = dynamic_cast<CharToken*>(it->get());
+        const CharToken* t5 = dynamic_cast<CharToken*>(it->get());
         if (!t5 || t5->ch() != ')')
             throw ParseError((*it)->position(), "expected ')' in prototype");
         ++it;
@@ -150,7 +155,7 @@ namespace {
 
     std::unique_ptr<FunctionNode> parseDefinition(Iter& it)
     {
-        DefToken* t1 = dynamic_cast<DefToken*>(it->get());
+        const DefToken* t1 = dynamic_cast<DefToken*>(it->get());
         if (!t1)
             throw ParseError((*it)->position(), "expected 'def'");
         ++it;
@@ -161,7 +166,7 @@ namespace {
 
     std::unique_ptr<PrototypeNode> parseExtern(Iter& it)
     {
-        ExternToken* t1 = dynamic_cast<ExternToken*>(it->get());
+        const ExternToken* t1 = dynamic_cast<ExternToken*>(it->get());
         if (!t1)
             throw ParseError((*it)->position(), "expected 'extern'");
         ++it;
@@ -198,7 +203,7 @@ namespace {
             return false;
         }
 
-        if (CharToken* t = dynamic_cast<CharToken*>(it->get())) {
+        if (const CharToken* t = dynamic_cast<CharToken*>(it->get())) {
             if (t->ch() == ';') {
                 ++it;
                 return false;
@@ -230,7 +235,7 @@ namespace kaleidoscope {
 
     llvm::Value* VariableExprNode::Codegen(Context& context) const
     {
-        auto it = context.namedValues().find(name_);
+        const auto it = context.namedValues().find(name_);
         if (it == context.namedValues().end())
             throw CodegenError(position(), "unknown variable name");
         return it->second;
@@ -272,7 +277,7 @@ namespace kaleidoscope {
     }
 
     llvm::Function* PrototypeNode::Codegen(Context& context) const {
-        std::vector<llvm::Type*> doubles(
+        const std::vector<llvm::Type*> doubles(
                 args_.size(), llvm::Type::getDoubleTy(llvm::getGlobalContext()));
         llvm::FunctionType* ft = llvm::FunctionType::get(
                 llvm::Type::getDoubleTy(llvm::getGlobalContext()), doubles, false);
@@ -326,14 +331,14 @@ namespace kaleidoscope {
 
         for (;;) {
             try {
-                bool finish = parseOneAndPrint(it, context);
+                const bool finish = parseOneAndPrint(it, context);
                 if (finish)
                     return;
             } catch (const BasicError& e) {
                 std::cerr << e.what() << std::endl;
                 // discard tokens until next ';'
                 for (;;) {
-                    CharToken* t = dynamic_cast<CharToken*>(it->get());
+                    const CharToken* t = dynamic_cast<CharToken*>(it->get());
                     ++it;
                     if (t && t->ch() == ';')
                         break;
